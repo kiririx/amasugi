@@ -49,5 +49,6 @@ func (*AbsRepo[T]) Query(sql string, args ...any) *DataQuery[T] {
 			sql:    sql,
 			params: args,
 		},
+		pos: -1,
 	}
 }
