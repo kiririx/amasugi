@@ -3,6 +3,7 @@ package amasugi
 import (
 	"database/sql"
 	"fmt"
+	"github.com/kiririx/krutils/logx"
 	"github.com/kiririx/krutils/sugar"
 	"reflect"
 	"time"
@@ -32,7 +33,12 @@ func (dq *DataQuery[T]) Next() (T, bool) {
 	dq.offset = dq.offset + dq.limit
 	dq.limit = 10
 	dq.sqlVal.sql += fmt.Sprintf(" limit %v,%v", dq.offset, dq.limit)
-	if dq.stat.Next() {
+	rows, err := db.Query(dq.sqlVal.sql, dq.sqlVal.params...)
+	if err != nil {
+		logx.ERR(err)
+		return t, false
+	}
+	if rows.Next() {
 		tt := reflect.TypeOf(t)
 		sugar.ForIndex(tt.NumField(), func(i int) (bool, bool) {
 			field := tt.Field(i)
@@ -45,7 +51,7 @@ func (dq *DataQuery[T]) Next() (T, bool) {
 		// dbModel := make(map[string]any)
 		// todo 这里应该用map，更快
 		_colsName := make([]string, 0)
-		colTypes, err := dq.stat.ColumnTypes()
+		colTypes, err := rows.ColumnTypes()
 		for _, v := range colTypes {
 			colName := v.Name()
 			_colsName = append(_colsName, colName)
@@ -66,7 +72,7 @@ func (dq *DataQuery[T]) Next() (T, bool) {
 			}
 
 		}
-		err = dq.stat.Scan(_cols...)
+		err = rows.Scan(_cols...)
 		if err != nil {
 			panic(err)
 		}

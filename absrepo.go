@@ -39,12 +39,15 @@ func (*AbsRepo[T]) Query(sql string, args ...any) *DataQuery[T] {
 	var t T
 	sql = fmt.Sprintf("select * from %s where %v", t.GetTableName(), sql)
 	// sql = fmt.Sprintf("select * from %s where %v limit %v,%v", t.GetTableName(), sql, 0, 10)
-	rows, err := db.Query(sql, args...)
-	if err != nil {
-		return nil
-	}
+	// rows, err := db.Query(sql, args...)
+	// if err != nil {
+	// 	return nil
+	// }
 
 	return &DataQuery[T]{
-		stat: rows,
+		sqlVal: &SQLVal{
+			sql:    sql,
+			params: args,
+		},
 	}
 }
