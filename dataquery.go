@@ -3,13 +3,14 @@ package amasugi
 import (
 	"database/sql"
 	"fmt"
+	"github.com/kiririx/amasugi/cache"
+	"github.com/kiririx/amasugi/model"
 	"github.com/kiririx/krutils/logx"
-	"github.com/kiririx/krutils/sugar"
 	"reflect"
 	"time"
 )
 
-type DataQuery[T IModel] struct {
+type DataQuery[T model.IModel] struct {
 	stat   *sql.Rows
 	sqlVal *SQLVal
 	offset int64
@@ -25,8 +26,6 @@ type SQLVal struct {
 	sql    string
 	params []any
 }
-
-var tagM = make(map[string]string)
 
 func (dq *DataQuery[T]) reGetResultSet() error {
 	dq.offset = dq.offset + dq.limit
@@ -61,13 +60,7 @@ func (dq *DataQuery[T]) Next() (T, bool) {
 	}
 	if dq.stat.Next() {
 		dq.pos++
-		tt := reflect.TypeOf(t)
-		sugar.ForIndex(tt.NumField(), func(i int) (bool, bool) {
-			field := tt.Field(i)
-			tag := field.Tag.Get("ami")
-			tagM[tag] = field.Name
-			return false, false
-		})
+		cache.InitTagM(t)
 
 		_cols := make([]any, 0)
 		// dbModel := make(map[string]any)
@@ -101,10 +94,10 @@ func (dq *DataQuery[T]) Next() (T, bool) {
 
 		tElem := reflect.ValueOf(&t).Elem()
 		for i, v := range _colsName {
-			if _, ok := tagM[v]; !ok {
+			if _, ok := cache.TagM[v]; !ok {
 				continue
 			}
-			tVal := tElem.FieldByName(tagM[v])
+			tVal := tElem.FieldByName(cache.TagM[v])
 			// todo 这里直接set bool。。更快
 			tVal.Set(reflect.ValueOf(_cols[i]).Elem())
 		}
@@ -117,8 +110,8 @@ func (dq *DataQuery[T]) Read(f func(t T)) {
 	dq.ReadLimit(f, -1)
 }
 
-func (dq *DataQuery[T]) ReadLimit(f func(t T), limit uint64) {
-	var i uint64 = 0
+func (dq *DataQuery[T]) ReadLimit(f func(t T), limit int64) {
+	var i int64 = 0
 	for {
 		if limit > 0 && i >= limit {
 			break

@@ -24,17 +24,45 @@ func (Event) GetTableName() string {
 }
 
 type EventRepo struct {
-	AbsRepo[Event]
+	AmiRepo[Event]
 }
 
 type UserRepo struct {
-	AbsRepo[User]
+	AmiRepo[User]
+}
+
+type Atlas struct {
+	Id           int       `ami:"id"`
+	Name         string    `ami:"name"`
+	CreateTime   time.Time `ami:"create_time"`
+	UpdateTime   time.Time `ami:"update_time"`
+	CreateUserId int       `ami:"create_user_id"`
+	UpdateUserId int       `ami:"update_user_id"`
+	IsDelete     int       `ami:"is_delete"`
+}
+
+func (Atlas) GetTableName() string {
+	return "xhh_atlas_tag"
+}
+
+type AtlasRepo struct {
+	AmiRepo[Atlas]
 }
 
 var userRepo = UserRepo{}
 var eventRepo = EventRepo{}
+var atlasRepo = AtlasRepo{}
 
 func TestDblib(t *testing.T) {
+	atlasRepo.Insert(&Atlas{
+		Id:           0,
+		Name:         "liuzx",
+		CreateTime:   time.Now(),
+		UpdateTime:   time.Now(),
+		CreateUserId: 2,
+		UpdateUserId: 3,
+		IsDelete:     1,
+	})
 	// dataQuery := userRepo.Query("id in (?, ?)", 1, 2)
 	//
 	// dataQuery.Read(func(user User) {
@@ -42,11 +70,11 @@ func TestDblib(t *testing.T) {
 	// 	fmt.Println(user.UpdateAt)
 	// })
 
-	dq2 := eventRepo.Query("1=1")
-	dq2.Read(func(event Event) {
-		t.Log(event.CreatedAt)
-		t.Log(event.Id)
-	})
+	// dq2 := eventRepo.Query("1=1")
+	// dq2.Read(func(event Event) {
+	// 	t.Log(event.CreatedAt)
+	// 	t.Log(event.Id)
+	// })
 
 	// stmt, err := db.Prepare("select * from user")
 	// if err != nil {
