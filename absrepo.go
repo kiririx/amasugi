@@ -32,6 +32,11 @@ func init() {
 type AmiRepo[T model.IModel] struct {
 }
 
+func (*AmiRepo[T]) GetTableName() string {
+	var t T
+	return t.GetTableName()
+}
+
 func (*AmiRepo[T]) Query(sql string, args ...any) *DataQuery[T] {
 	var t T
 	sql = fmt.Sprintf("select * from %s where %v", t.GetTableName(), sql)
@@ -66,7 +71,7 @@ func ReflectValParse(v reflect.Value) any {
 	}
 }
 
-func (*AmiRepo[T]) Insert(t *T) error {
+func (ar *AmiRepo[T]) Insert(t *T) (int64, error) {
 	tType := reflect.TypeOf(*t)
 	sqlColumn := `(`
 	sqlValues := "("
@@ -85,25 +90,60 @@ func (*AmiRepo[T]) Insert(t *T) error {
 	})
 	sqlColumn += ")"
 	sqlValues += ")"
-	tableName := (*t).GetTableName()
-	sqlStr := fmt.Sprintf("insert into %s %s values %v", tableName, sqlColumn, sqlValues)
-	_, err := db.Exec(sqlStr, values...)
+	sqlStr := fmt.Sprintf("insert into %s %s values %v", ar.GetTableName(), sqlColumn, sqlValues)
+	result, err := db.Exec(sqlStr, values...)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return nil
+	return result.RowsAffected()
 }
 
-func (*AmiRepo[T]) Update(t *T) (uint64, error) {
-	return 0, nil
+func (ar *AmiRepo[T]) Update(t *T) (int64, error) {
+	tType := reflect.TypeOf(*t)
+	sqlColumn := ""
+	values := make([]any, 0, tType.NumField())
+	for i := 0; i < tType.NumField(); i++ {
+		field := tType.Field(i)
+		value := reflect.ValueOf(*t).Field(i)
+		tag := field.Tag.Get(constx.TAG)
+		if tag == "id" {
+			continue
+		}
+		sqlColumn += fmt.Sprintf("%s=?", tag)
+		values = append(values, ReflectValParse(value))
+		if i < tType.NumField()-1 {
+			sqlColumn += ","
+		}
+	}
+	id := reflect.ValueOf(*t).FieldByName("Id").Int()
+	sqlStr := fmt.Sprintf("update %s set %s where id = %v", ar.GetTableName(), sqlColumn, id)
+	result, err := db.Exec(sqlStr, values...)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
-func (*AmiRepo[T]) DeleteById(id uint64) error {
-	return nil
+func (*AmiRepo[T]) UpdateColumns(columns []string, t T) {
+
 }
 
-func (*AmiRepo[T]) Delete(sql string, args ...any) (uint64, error) {
-	return 0, nil
+func (ar *AmiRepo[T]) DeleteById(id uint64) (int64, error) {
+	sqlVal := fmt.Sprintf("delete from %s where id = ?", ar.GetTableName())
+	result, err := db.Exec(sqlVal, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+func (ar *AmiRepo[T]) Delete(sql string, args ...any) (int64, error) {
+	sqlVal := fmt.Sprintf("delete from %s where %v", ar.GetTableName(), sql)
+	result, err := db.Exec(sqlVal, args)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 func (*AmiRepo[T]) Execute(sql string, args ...any) (map[string]any, error) {
