@@ -37,15 +37,10 @@ func (*AmiRepo[T]) GetTableName() string {
 	return t.GetTableName()
 }
 
+// Query 构建一个DataQuery，只有在调用next方法的时候才进行真正的查询
 func (*AmiRepo[T]) Query(sql string, args ...any) *DataQuery[T] {
 	var t T
 	sql = fmt.Sprintf("select * from %s where %v", t.GetTableName(), sql)
-	// sql = fmt.Sprintf("select * from %s where %v limit %v,%v", t.GetTableName(), sql, 0, 10)
-	// rows, err := db.Query(sql, args...)
-	// if err != nil {
-	// 	return nil
-	// }
-
 	return &DataQuery[T]{
 		sqlVal: &SQLVal{
 			sql:    sql,
@@ -71,6 +66,7 @@ func ReflectValParse(v reflect.Value) any {
 	}
 }
 
+// Insert 插入
 func (ar *AmiRepo[T]) Insert(t *T) (int64, error) {
 	tType := reflect.TypeOf(*t)
 	sqlColumn := `(`
@@ -98,6 +94,7 @@ func (ar *AmiRepo[T]) Insert(t *T) (int64, error) {
 	return result.RowsAffected()
 }
 
+// Update 更新
 func (ar *AmiRepo[T]) Update(t *T) (int64, error) {
 	tType := reflect.TypeOf(*t)
 	sqlColumn := ""
@@ -128,6 +125,7 @@ func (*AmiRepo[T]) UpdateColumns(columns []string, t T) {
 
 }
 
+// DeleteById 通过id删除
 func (ar *AmiRepo[T]) DeleteById(id uint64) (int64, error) {
 	sqlVal := fmt.Sprintf("delete from %s where id = ?", ar.GetTableName())
 	result, err := db.Exec(sqlVal, id)
@@ -137,6 +135,7 @@ func (ar *AmiRepo[T]) DeleteById(id uint64) (int64, error) {
 	return result.RowsAffected()
 }
 
+// Delete 删除
 func (ar *AmiRepo[T]) Delete(sql string, args ...any) (int64, error) {
 	sqlVal := fmt.Sprintf("delete from %s where %v", ar.GetTableName(), sql)
 	result, err := db.Exec(sqlVal, args)
@@ -146,6 +145,22 @@ func (ar *AmiRepo[T]) Delete(sql string, args ...any) (int64, error) {
 	return result.RowsAffected()
 }
 
-func (*AmiRepo[T]) Execute(sql string, args ...any) (map[string]any, error) {
-	return nil, nil
+// ExecuteQuery 执行任意sql, 并返回dataQuery
+func (*AmiRepo[T]) ExecuteQuery(sql string, args ...any) *DataQuery[map[string]any] {
+	return &DataQuery[map[string]any]{
+		sqlVal: &SQLVal{
+			sql:    sql,
+			params: args,
+		},
+		pos: -1,
+	}
+}
+
+// ExecuteCUD 执行增删改，返回影响的行数
+func (*AmiRepo[T]) ExecuteCUD(sql string, args ...any) (int64, error) {
+	result, err := db.Exec(sql, args)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
