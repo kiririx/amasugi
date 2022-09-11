@@ -32,15 +32,15 @@ func init() {
 type AmiRepo[T model.IModel] struct {
 }
 
-func (*AmiRepo[T]) GetTableName() string {
+func (*AmiRepo[T]) TableName() string {
 	var t T
-	return t.GetTableName()
+	return t.TableName()
 }
 
 // Query 构建一个DataQuery，只有在调用next方法的时候才进行真正的查询
 func (*AmiRepo[T]) Query(sql string, args ...any) *DataQuery[T] {
 	var t T
-	sql = fmt.Sprintf("select * from %s where %v", t.GetTableName(), sql)
+	sql = fmt.Sprintf("select * from %s where %v", t.TableName(), sql)
 	return &DataQuery[T]{
 		sqlVal: &SQLVal{
 			sql:    sql,
@@ -86,7 +86,7 @@ func (ar *AmiRepo[T]) Insert(t *T) (int64, error) {
 	})
 	sqlColumn += ")"
 	sqlValues += ")"
-	sqlStr := fmt.Sprintf("insert into %s %s values %v", ar.GetTableName(), sqlColumn, sqlValues)
+	sqlStr := fmt.Sprintf("insert into %s %s values %v", ar.TableName(), sqlColumn, sqlValues)
 	result, err := db.Exec(sqlStr, values...)
 	if err != nil {
 		return 0, err
@@ -113,7 +113,7 @@ func (ar *AmiRepo[T]) Update(t *T) (int64, error) {
 		}
 	}
 	id := reflect.ValueOf(*t).FieldByName("Id").Int()
-	sqlStr := fmt.Sprintf("update %s set %s where id = %v", ar.GetTableName(), sqlColumn, id)
+	sqlStr := fmt.Sprintf("update %s set %s where id = %v", ar.TableName(), sqlColumn, id)
 	result, err := db.Exec(sqlStr, values...)
 	if err != nil {
 		return 0, err
@@ -127,7 +127,7 @@ func (*AmiRepo[T]) UpdateColumns(columns []string, t T) {
 
 // DeleteById 通过id删除
 func (ar *AmiRepo[T]) DeleteById(id uint64) (int64, error) {
-	sqlVal := fmt.Sprintf("delete from %s where id = ?", ar.GetTableName())
+	sqlVal := fmt.Sprintf("delete from %s where id = ?", ar.TableName())
 	result, err := db.Exec(sqlVal, id)
 	if err != nil {
 		return 0, err
@@ -137,8 +137,8 @@ func (ar *AmiRepo[T]) DeleteById(id uint64) (int64, error) {
 
 // Delete 删除
 func (ar *AmiRepo[T]) Delete(sql string, args ...any) (int64, error) {
-	sqlVal := fmt.Sprintf("delete from %s where %v", ar.GetTableName(), sql)
-	result, err := db.Exec(sqlVal, args)
+	sqlVal := fmt.Sprintf("delete from %s where %v", ar.TableName(), sql)
+	result, err := db.Exec(sqlVal, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -146,21 +146,39 @@ func (ar *AmiRepo[T]) Delete(sql string, args ...any) (int64, error) {
 }
 
 // ExecuteQuery 执行任意sql, 并返回dataQuery
-func (*AmiRepo[T]) ExecuteQuery(sql string, args ...any) *DataQuery[map[string]any] {
-	return &DataQuery[map[string]any]{
-		sqlVal: &SQLVal{
-			sql:    sql,
-			params: args,
-		},
-		pos: -1,
-	}
-}
+// func (*AmiRepo[T]) ExecuteQuery(sql string, args ...any) *DataQuery[map[string]any] {
+// 	return &DataQuery[map[string]any]{
+// 		sqlVal: &SQLVal{
+// 			sql:    sql,
+// 			params: args,
+// 		},
+// 		pos: -1,
+// 	}
+// }
 
 // ExecuteCUD 执行增删改，返回影响的行数
 func (*AmiRepo[T]) ExecuteCUD(sql string, args ...any) (int64, error) {
-	result, err := db.Exec(sql, args)
+	result, err := db.Exec(sql, args...)
 	if err != nil {
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+func (repo *AmiRepo[T]) Get(sql string, args ...any) (*T, error) {
+	dataQuery := repo.Query(sql, args...)
+	v, err := dataQuery.Next()
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (repo *AmiRepo[T]) GetById(id uint64) (*T, error) {
+	dataQuery := repo.Query("id = ?", id)
+	v, err := dataQuery.Next()
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
 }
