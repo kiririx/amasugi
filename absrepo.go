@@ -7,7 +7,8 @@ import (
 	"github.com/kiririx/amasugi/constx"
 	"github.com/kiririx/amasugi/model"
 	"github.com/kiririx/krutils/confx"
-	"github.com/kiririx/krutils/sugar"
+	"github.com/kiririx/krutils/reflectx"
+	"github.com/kiririx/krutils/strx"
 	"reflect"
 	"time"
 )
@@ -71,19 +72,19 @@ func (ar *AmiRepo[T]) Insert(t *T) (int64, error) {
 	tType := reflect.TypeOf(*t)
 	sqlColumn := `(`
 	sqlValues := "("
-	values := make([]any, 0, tType.NumField())
-	sugar.ForIndex(tType.NumField(), func(i int) (bool, bool) {
-		field := tType.Field(i)
-		value := reflect.ValueOf(*t).Field(i)
-		sqlColumn += field.Tag.Get(constx.TAG)
-		values = append(values, ReflectValParse(value))
-		sqlValues += "?"
-		if i < tType.NumField()-1 {
-			sqlColumn += ","
-			sqlValues += ","
-		}
-		return false, false
-	})
+	values := make([]any, 0)
+	{
+		i := 0
+		reflectx.RangeStructField(tType, func(field reflect.StructField) {
+			i++
+			value := reflect.ValueOf(*t).FieldByName(field.Name)
+			sqlColumn += field.Tag.Get(constx.TAG) + ","
+			values = append(values, ReflectValParse(value))
+			sqlValues += "?,"
+		})
+		sqlColumn = strx.SubStr(sqlColumn, 0, strx.Len(sqlColumn)-1)
+		sqlValues = strx.SubStr(sqlValues, 0, strx.Len(sqlValues)-1)
+	}
 	sqlColumn += ")"
 	sqlValues += ")"
 	sqlStr := fmt.Sprintf("insert into %s %s values %v", ar.TableName(), sqlColumn, sqlValues)
